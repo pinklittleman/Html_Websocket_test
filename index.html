@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Secure WebSocket Client</title>
+</head>
+<body>
+  <h1>Simple Secure WebSocket Client</h1>
+  
+  <!-- Create WebSocket connection -->
+  <script>
+    const ws = new WebSocket('wss://localhost:8443');
+
+    // Handle messages from the server
+    ws.onmessage = function(event) {
+      console.log('Message from server:', event.data);
+    };
+
+    // Send a message to the server
+    setTimeout(() => {
+      const message = 'Hello, World! (From Client)';
+      ws.send(message);
+      console.log('Sent message: ', message);
+    }, 1000);
+
+    // Close connection after 5 seconds
+    setTimeout(() => {
+      ws.close();
+      console.log('WebSocket client closed');
+    }, 5000);
+  </script>
+</body>
+</html>
