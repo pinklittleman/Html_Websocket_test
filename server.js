@@ -1,61 +1,47 @@
-const fs = require('fs');
-const crypto = require('crypto');
+const fs = import('fs');
+const crypto = import('crypto');
 
-// Read the private key file
-const privateKey = fs.readFileSync('./server.key', 'utf8');
+const express = require('express');
+const app = express();
+app.use(express.static(__dirname));
 
-try {
-    // Parse and create a private key object
-    const parsePrivateKey = (privatekey) => {
-        const headerBegin = '-----BEGIN PRIVATE KEY-----';
-        const headerEnd = '-----END PRIVATE KEY-----';
+let privateKey;
 
-        if (!privatekey.startsWith(headerBegin) || !privatekey.endsWith(headerEnd)) {
-            throw new Error('Invalid private key format');
-        }
-
-        const content = privatekey.slice(
-            headerBegin.length,
-            -headerEnd.length
-        ).trim();
-
-        // Create the private key object
-        return crypto.createPrivateKey({
-            type: 'pkcs1-rsa-sha256',
-            key: content,
-        });
-    };
-
-    // Use the parsed private key in your TLS connection
-    const server = tls.createServer({ port: 443 }, (socket) => {
-        socket.on('close', () => {
-            console.log('TLS server closed');
-        });
-    });
-
-    const conn = await parsePrivateKey(privateKey);
-
-    server.on('tlsConnect', async (res, callback) => {
-        try {
-            // Use the private key for authentication
-            const auth = await crypto.createAuth(res, conn);
-            
-            if (auth.error) {
-                console.log('Authentication failed:', auth.error);
-                res.destroy(4006); // Close the connection with an error code
-                return;
-            }
-
-            callback(null, 1); // Accept the client connection
-        } catch (err) {
-            console.error('TLS server authentication failed:', err);
-            res.destroy(4005); // Destroy the connection due to unauthorized access
-        }
-    });
-
-    await server.listen(() => {
-        console.log('TLS server is now listening on port 443');
-    });
-} catch (err) {
-    console.error('Error reading or parsing private key:', err);
+async function readPrivateKey() {
+    try {
+        const keyFile = await fs.promises.readFile('./server.key', 'utf8');
+        return keyFile;
+    } catch (error) {
+        console.error('Error reading private key:', error);
+        return null;
+    }
 }
+
+const WebSocketServer = require('ws').Server;
+const wss = new WebSocketServer({ server: app });
+
+wss.on('connection', function connection(ws) {
+    readPrivateKey().then(async (keyData) => {
+        if (!keyData) {
+            ws.send('No private key found. Please check the file path.');
+            return;
+        }
+
+        const privateKeyHash = crypto.createHash('sha256').update(keyData).digest('hex');
+        ws.send(`Private key hash: ${privateKeyHash}`);
+    }).catch(error => {
+        console.error('Error processing connection:', error);
+        ws.close();
+    });
+
+    ws.on('close', () => {
+        console.log('Client disconnected.');
+    });
+});
+
+app.use('/ws', wss);
+
+// Start server on port 3000
+const server = app.listen(3000, function() {
+    console.log('Server running on port 3000');
+});
