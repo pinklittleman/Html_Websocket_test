@@ -1,7 +1,7 @@
 const fs = import('fs');
 const crypto = import('crypto');
 
-const express = require('express');
+const express = import('express');
 const app = express();
 app.use(express.static(__dirname));
 
